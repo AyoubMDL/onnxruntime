@@ -14,6 +14,9 @@ Status ConvBNFusion::Apply(Graph& graph, Node& node, RewriteRuleEffect& rule_eff
   auto& conv_node = node;
   Node& bn_node = *graph.GetNode(conv_node.OutputNodesBegin()->Index());
 
+  // Check if the node is Conv or ConvTranspose
+  const bool is_conv_transpose = graph_utils::IsSupportedOptypeVersionAndDomain(conv_node, "ConvTranspose", {1, 11});
+
   // Get value of attribute epsilon
   const onnxruntime::NodeAttributes& attributes = bn_node.GetAttributes();
   const ONNX_NAMESPACE::AttributeProto* attr = &(attributes.find("epsilon")->second);
@@ -86,7 +89,7 @@ Status ConvBNFusion::Apply(Graph& graph, Node& node, RewriteRuleEffect& rule_eff
   bn_var.add(epsilon);
   bn_var.sqrt();
   bn_scale.div(bn_var);
-  conv_W.scale_by_axis(bn_scale, 1);
+  conv_W.scale_by_axis(bn_scale, is_conv_transpose ? 0 : 1);
 
   if (conv_inputs.size() == 3) {
     conv_B->sub(bn_mean);
@@ -145,7 +148,8 @@ Status ConvBNFusion::Apply(Graph& graph, Node& node, RewriteRuleEffect& rule_eff
 }
 
 bool ConvBNFusion::SatisfyCondition(const Graph& graph, const Node& node, const logging::Logger&) const {
-  if (!graph_utils::IsSupportedOptypeVersionAndDomain(node, "Conv", {1, 11}) ||
+  if (!(graph_utils::IsSupportedOptypeVersionAndDomain(node, "Conv", {1, 11}) ||
+        graph_utils::IsSupportedOptypeVersionAndDomain(node, "ConvTranspose", {1, 11})) ||
       node.GetOutputEdgesCount() != 1) {
     return false;
   }

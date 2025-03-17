@@ -19,7 +19,7 @@ class ConvBNFusion : public RewriteRule {
   ConvBNFusion() noexcept : RewriteRule("ConvBNFusion") {}
 
   std::vector<std::string> TargetOpTypes() const noexcept override {
-    return {"Conv"};
+    return {"Conv", "ConvTranspose"};
   }
 
  private:
